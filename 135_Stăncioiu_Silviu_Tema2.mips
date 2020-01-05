@@ -1,0 +1,258 @@
+.data
+
+    # vectorul cu numerele citite
+    numere:.space 400
+
+.text
+
+suma_patrate:
+
+    # pune frame pointer-ul pe stiva pentru a-l
+    # putea restaura la sfarsitul procedurii
+    subu $sp, 4
+    sw $fp, 0($sp)
+    addi $fp, $sp 4
+
+    # pune $ra pe stack pentru a putea avea recursivitate
+    subu $sp, 4
+    sw $ra, 0($sp)
+
+    # pune $s0 si $s1 pe stiva pentru a restaura valorile acestora
+    # la sfarsitul procedurii
+    subu $sp, 4
+    sw $s0, 0($sp)
+
+    subu $sp, 4
+    sw $s1, 0($sp)
+
+    # incarca in $s0 argumentul cu care a fost apelata
+    # procedura
+    lw $s0, 0($fp)
+
+    # seteaza valoarea implicita de return
+    li $v0, 0
+
+    # poate continua doar daca x - 1 > 0
+    # adica x > 1
+    ble $s0, 1, exitsumapatrate
+
+    # daca poate continua, calculeaza recursiv rezultatul
+    # formula de recurenta e (x-1)^2 + suma_patrate(x - 1)
+    # incarca in registrul $s1 valoarea x
+    move $s1, $s0
+    # scade 1 din $s1
+    subu $s1, 1
+    # ridica-l la patrat
+    mul $s1, $s1, $s1
+
+    # scade 1 din $s0 direct fara vreun registru auxiliar
+    # pentru ca in acest cadru de apel oricum nu se va mai folosi valoarea originala
+    # din x
+    subu $s0, 1
+    # pune valoarea din $s0 pe stiva pentru a reapela functia suma_patrate
+    subu $sp, 4
+    sw $s0, 0($sp)
+
+    jal suma_patrate
+
+    # restaureaza stack pointer-ul
+    addu $sp, 4
+
+    # adauga rezultatul din functie la rezultatul curent
+    add $s1, $s1, $v0
+
+    # returneaza prin $v0 valoarea ceruta
+    move $v0, $s1
+
+    exitsumapatrate:
+
+        # restaureaza $s1, $s0, $ra, si $fp
+        lw $s1, -16($fp)
+        lw $s0, -12($fp)
+        lw $ra, -8($fp)
+        lw $fp, -4($fp)
+
+        # readu stack pointerul la valoarea initiala
+        addu $sp, 16
+
+        jr $ra
+
+modifica:
+
+    # pune frame pointer-ul pe stiva pentru a-l
+    # putea restaura la sfarsitul procedurii
+    subu $sp, 4
+    sw $fp, 0($sp)
+    addi $fp, $sp 4
+
+    # pune $ra pe stack pentru a putea avea recursivitate
+    subu $sp, 4
+    sw $ra, 0($sp) 
+
+    # pune $s0, $s1 si $s2 pe stiva pentru a restaura valorile acestora
+    # la sfarsitul procedurii
+    subu $sp, 4
+    sw $s0, 0($sp)
+
+    subu $sp, 4
+    sw $s1, 0($sp)
+
+    # $s2 va avea rost de registru temporar pentru diverse operatii 
+    subu $sp, 4
+    sw $s2, 0($sp)
+
+    # incarca in $s0 adresa vectorului
+    lw $s0, 0($fp)
+    # incarca in $s1 lungimea ramasa a vectorului
+    lw $s1, 4($fp)
+
+    # conditia de iesire din recursivitate
+    # daca lungimea ramasa e mai mica sau egala cu 0
+    # nu mai poate intra in recursivitate
+    ble $s1, 0, exitmodifica
+
+    # daca poate continua, modifica valoarea din vector
+    # salveaza valoarea din vector la pozitia actuala in $s2
+    lw $s2, 0($s0)
+    
+    # pune valoarea din vector pe stiva 
+    # pentru a apela procedura suma_patrate(x)
+    subu $sp, 4
+    sw $s2, 0($sp)
+
+    jal suma_patrate
+
+    # restaureaza stack pointer-ul
+    addu $sp, 4
+
+    # pune noul rezultat in vector
+    sw $v0, 0($s0)
+
+    # apeleaza modifica(*v + 1, n - 1)
+    # adica adresa urmatoare din vector si indica ca acum
+    # lungimea e cu 1 mai mic
+
+    # incarca lungimea curenta a vectorului in $s2
+    move $s2, $s1
+    # decrementeaza lungimea ramasa a vectorului cu 1
+    subu $s2, 1
+    # pune lungimea ramasa pe stiva
+    subu $sp, 4
+    sw $s2, 0($sp)
+
+    # incarca adresa vectorului in $s2
+    move $s2, $s0
+    # incrementeaza adresa cu 4 pentru a apela functie recursiv
+    # de la urmatoarea pozitie din vector
+    addi $s2, $s2, 4
+
+    # pune adresa vectorului de la urmatoarea pozitie pe stiva
+    subu $sp, 4
+    sw $s2, 0($sp)
+
+    # acum putem reapela functia modifica
+    jal modifica
+
+    # restaureaza stack pointer-ul
+    addu $sp, 8
+
+    exitmodifica:
+
+        # restaureaza $s2, $s1, $s0, $ra, si $fp
+        lw $s2, -20($fp)
+        lw $s1, -16($fp)
+        lw $s0, -12($fp)
+        lw $ra, -8($fp)
+        lw $fp, -4($fp)
+
+        # readu stack pointerul la valoarea initiala
+        addu $sp, 20
+
+        # se intoarece de unde a fost apelata procedura
+        jr $ra
+
+main:
+
+    # citeste lungimea vectorului si o pastreaza
+    # in registrul $t0
+    li $v0, 5
+    syscall
+    move $t0, $v0
+
+    # daca n e negativ, programul nu are sens
+    ble $v0, 0, sfprog
+
+    # foloseste $t1 pe post de contor pentru loop
+    # si $t2 pentru adresa de memorie din vector
+    li $t1, 0
+    li $t2, 0
+    citeste:
+
+        # daca am citit toate elementele
+        # opreste citirea
+        beq $t1, $t0, sfcitire
+        
+        # citeste numarul curent si il salveaza
+        # in vector
+        li $v0, 5
+        syscall
+        sw $v0, numere($t2)
+
+        # incrementeaza contorii
+        addi $t1, 1
+        addi $t2, 4
+
+        # continua citirea
+        j citeste
+
+    sfcitire:
+        # vectorul a fost citit
+
+        # pune lungimea vectorului pe stiva
+        subu $sp, 4
+        sw $t0, 0($sp)
+
+        # pune si adresa de memorie a vectorului pe stiva
+        la $t1, numere
+        subu $sp, 4
+        sw $t1, 0($sp)
+
+        # apeleaza procedura modifica(*v, n)
+        jal modifica
+
+        # restaureaza stack pointer-ul
+        addu $sp, 8
+
+        # la afisare, din nou, foloseste $t1 pe post de contor pentru loop
+        # si $t2 pentru adresa de memorie din vector
+        li $t1, 0
+        li $t2, 0
+
+    afiseaza:
+
+        # daca am afisat toate elementele
+        # programul se poate sfarsi
+        beq $t1, $t0, sfprog
+
+        # afiseaza numarul curent din vector
+        lw $a0, numere($t2)
+        li $v0, 1
+        syscall
+
+        # afiseaza spatiu intre numerele din vector
+        la $a0, ' '
+        li $v0, 11
+        syscall
+
+        # incrementeaza contorii
+        addi $t1, 1
+        addi $t2, 4
+
+        # continua afisarea
+        j afiseaza
+    
+    sfprog:
+
+        # programul se termina aici
+        li $v0, 10
+        syscall

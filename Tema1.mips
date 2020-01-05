@@ -1,0 +1,371 @@
+.data
+
+    # elementele grupului generat de generator
+    # vector de lungime maxim 101
+    corespondente:.space 404
+
+    # vectorul corespondentelor inverse
+    # va fi folosit pentru decriptarea
+    # celui de-al doilea sir de caractere
+    invCorespondente:.space 404
+
+    # sirul de caractere in care se va citi mesajul
+    # necriptat
+    necriptat:.space 100
+
+    # sirul de caractere in care se va citi mesajul criptat
+    criptat:.space 100
+
+    # mesajul de eroare in cazul in care numarul introdus nu este prim
+    neprimMesaj:.asciiz "Numarul introdus nu este prim"
+    # mesajul dinainte de a afisa care este generatorul
+    genEste:.asciiz "Generatorul g este "
+    # sir pentru a lasa rand nou
+    endl:.asciiz "\n"
+
+.text
+main:
+
+    # citeste numarul p
+    # si il memoreaza in registrul $t0
+    li $v0, 5
+    syscall
+    move $t0, $v0
+
+    # citeste mesajul necriptat
+    la $a0, necriptat
+    li $a1, 99
+    li $v0, 8
+    syscall
+
+    # citeste mesajul criptat
+    la $a0, criptat
+    syscall
+    
+    # 0 si 1 nu sunt prime
+    beq $t0, 0, neprim
+    beq $t0, 1, neprim
+
+    # nu are sens programul pentru numere negative
+    blt $t0, 0, sfprog
+
+    # verifica daca numarul p este prim
+    # in $t1 se va memora valoarea care este testata la pasul curent
+    li $t1, 2
+    primloop:
+
+        # memoreaza in registrul $t2 valoarea patratului lui $t1 pentru a
+        # verifica eficient conditia de iesire din loop (cand i > sqrt(p), 
+        # sau in cazul de fata, cand i*i > p)
+        mul $t2, $t1, $t1
+
+        # daca s-a ajuns aici, nu s-a gasit niciun numar care sa fie divizibil
+        # cu p deci numarul p este prim
+        bgt $t2, $t0, gasitprim
+
+        # memoreaza in registrul t2 valoarea restului impartirii lui p la 
+        # valoarea aflata in $t1 pentru a verifica daca valoarea din registrul
+        # $t1 este un divizor al lui p
+        rem $t2, $t0, $t1
+
+        # daca restul este 0, numarul nu este prim
+        beq $t2, 0, neprim
+
+        # incrementeaza valoarea care este testata ca divizor
+        addi $t1, 1
+        j primloop
+
+        neprim:
+
+            # afiseaza pe ecran faptul ca numarul nu este prim
+            la $a0, neprimMesaj
+            li $v0, 4
+            syscall
+
+            # incheie executia algoritmului
+            j sfprog
+    
+gasitprim:
+
+# aici se va cauta cel mai mic generator
+# registrul $t1 va memora generatorul curent
+# este initializat cu 1 pentru cazul in care p = 2 
+# (puteam porni de la 2 daca nu exista acest caz)
+li $t1, 1
+cautagen:
+
+    # cand s-au verificat toate elementele
+    # opreste executia structurii repetitive
+    bgt $t1, $t0, gasitgen
+
+    # t2 va memora puterea curenta a elementului
+    # care este testat ca generator
+    move $t2, $t1
+
+    # ridica elementul $t1 la putere de p ori pentru a verifica daca
+    # este generator
+    # registrul $3 va memora contorul puterilor la care este
+    # ridicata valoarea din $t0
+    # registrul $t4 va reprezenta contorul pentru spatiul de memorie alocat
+    # in care se vor memora corespondentele directe
+    # $t4 porneste de la elementul 1 (nu de la 0) deoarce
+    # va primi valoare 1 la pozitia 0 ulterior
+    li $t3, 1
+    li $t4, 4
+    
+    gencorespondente:
+
+        # cat timp puterea este mai mica decat p se va executa
+        # bucata de cod
+        beq $t3, $t0, generatcorespondente
+
+        # daca valoarea lui $t1 ridicata la puterea curenta
+        # este 1, este posibil sa nu fie generator
+        beq $t2, 1, posng
+
+        contgen:
+
+        # memoreaza puterea curenta
+        sw $t2, corespondente($t4)
+
+        # g = g * g_pas_anterior mod p
+        # calculeaza puterea urmatoare
+        mul $t2, $t1, $t2
+        # realizeaza operatia mod p asupra puterii
+        rem $t2, $t2, $t0
+
+        # incrementeaza contorul pentru aceasta sectiune repetitiva
+        addi $t3, 1
+        # incrementeaza indexul in vectorul de corespondente
+        addi $t4, 4
+
+        j gencorespondente
+
+        posng:
+
+            # daca contorul $t3 nu duce catre ultimul element,
+            # atunci $t1 nu este generator (am ajuns la 1 inainte de a genera
+            # toate elementele adica)
+            
+            # foloseste registrul $t5 pentru a memora valoarea lui p-1
+            move $t5, $t0
+            addi $t5, -1
+            
+            # daca pozitia in vector este mai mica decat p-1
+            # atunci elementul nu este generator deci poate fi
+            # oprita verificarea elementului curent
+            blt $t3, $t5, skipvalue
+        
+            # altfel contiuna executia in mod normal
+            j contgen
+
+# a generat corespondentele formate
+# de elementul curent
+# acum va verifica daca elementul a reusit
+# sa genereze restul elementelor grupului
+# $t2 va memora elementul care este cautat
+# daca exista in vectorul de corespondente
+li $t2, 1
+generatcorespondente:
+
+    # daca toate valorile au fost gasite in vectorul
+    # corespondente, atunci am gasit cel mai mic
+    # generator
+    beq $t2, $t0, gasitgen
+
+    # $t3 va fi contorul pentru parcurgerea vectorului,
+    # iar $t4 va fi contorul pentru adresa de memorie curenta in vector
+    li $t3, 1
+    li $t4, 4
+    cautavec:
+
+        # daca a ajuns pana aici, inseamna ca nu e generator
+        beq $t3, $t0, skipvalue
+
+        # salveaza in registrul $t5 valoarea elementului
+        # curent din vectorul corespondente
+        lw $t5, corespondente($t4)
+
+        # daca valoarea din $t5 este egala cu cea din $2
+        # atunci elementul la care se face verificarea
+        # a fost gasit in vectorul de corespondente
+        # deci va continua cu urmatorul
+        beq $t5, $t2, verifurmator
+
+        # incrementeaza contoarele
+        addi $t3, 1
+        addi $t4, 4
+        j cautavec
+    
+        verifurmator:
+
+            # incrementeaza elementul cautat
+            addi $t2, 1
+            j generatcorespondente
+    
+skipvalue:
+
+    # incrementeaza valoarea din registrul $t1
+    # si continua verificarea urmatorului element ca generator
+    addi $t1, 1
+    j cautagen
+
+gasitgen:
+
+    # daca ajunge aici, atunci a gasit generator
+    # generatorul este memorat in registrul $t1
+
+    # afiseaza mesajul cum ca a gasit generatorul
+    la $a0, genEste
+    li $v0, 4
+    syscall
+
+    # afiseaza generatorul propriu-zis
+    move $a0, $t1
+    li $v0, 1
+    syscall
+
+    # lasa un rand nou
+    la $a0, endl
+    li $v0, 4
+    syscall
+
+    # initializeaza primul element in vectorul
+    # de corespondente directe (atribuie valoarea 1
+    # primului element, adica 0 din primul grup
+    # duce in 1 din grupul 2)
+    li $t2, 1
+    # incarca in $t3 valoarea 0 pentru a duce catre
+    # primul index din vectori
+    li $t3, 0
+    sw $t2, corespondente($t3)
+
+    # initializeaza primul element in vectorul
+    # de corespondente inverse (e cam inutil
+    # deoarece 0 nu se afla in al doilea grup
+    # dar facem operatia pentru consistenta
+    # codului)
+    li $t2, 0
+    sw $t2, invCorespondente($t3)
+
+    # generaza corespondentele inverse 
+    # necesare pentru decriptarea celui de-al doilea
+    # sir de caractere
+    # vom parcurge vectorul de corespondente directe de la 0 pana la
+    # pozitia p-1 (exclusiv, deoarce la acea pozitie se afla valoarea 1,
+    # care s-ar repeta, deoarce am introdus-o la prima pozitia in vector)
+    # aceasta parcurgere nu ar putea fi eliminata si inversele sa fie generate cand
+    # sunt generate corespondentele directe deoarece s-ar realiza confilcte cu elementul 1
+    # din al doilea grup
+    # $t2 va fi contorul pentru aceasta iterare
+    li $t2, 0
+    geninv:
+
+        # vom folosi temporar registrul $t3 pentru a memora
+        # valoarea lui p-1, fiind necesara pentru conditia de oprire
+        move $t3, $t0
+        addi $t3, -1
+        # dupa ce am generat corespondentele inverse
+        # suntem gata de criptare/ decriptare
+        beq $t2, $t3, cripteaza
+
+        # acum vom folosi $t3 pentru a calcula indexul in vectorul de corespondente
+        move $t3, $t2
+        # inmulteste $t3 cu 4
+        li $t4, 4
+        mul $t3, $t3, $t4
+
+        # salveaza in $t4 valoarea corespondentei curente
+        lw $t4, corespondente($t3)
+
+        # transforma $t4 in index pentru vectorul invCorespondente
+        li $t5, 4
+        mul $t4, $t4, $t5
+
+        # salveaza valoarea contorului in vectorul invCorespondente
+        # practic toata aceasta secventa de cod e pentru a realiza operatia
+        # invCorespondente[corespondente[$t2]] = $t2 (evident, nu e corespondente[$t2],
+        # in cazul asta pentru ca sunt bytes, deci merge din 4 in 4, adica $t3)
+        sw $t2, invCorespondente($t4)
+
+        # incrementeaza contorul
+        addi $t2, 1
+
+        j geninv
+
+# aici vom cripta sirurile de caractere caractere citit
+cripteaza:
+
+    # $t3 va fi contorul
+    # incarca valoarea primului caracter in $t2
+    li $t3, 0
+    lb $t2, necriptat($t3)
+
+    cripteazaprim:
+
+        # cand a ajuns la caracterul de final
+        # inseamna ca a terminat de criptat sirul
+        # de caractere
+        beq $t2, '\n', afiscript
+
+        # obtine numarul caracterului
+        addi $t2, $t2, -65
+        # inmulteste $t2 cu 4 pentru a obtine indexul in vector
+        li $t4, 4
+        mul $t2, $t2, $t4
+
+        # salveaza valoarea corespondentei in $t4
+        lw $t4, corespondente($t2)
+        # transforma $t4 in cod ASCII din nou
+        addi $t4, $t4, 65
+
+        # modifica valoarea caracterului curent
+        sb $t4, necriptat($t3)
+
+        addi $t3, 1
+        lb $t2, necriptat($t3)
+
+        j cripteazaprim
+
+afiscript:
+
+    # afiseaza mesajul dupa ce il cripteaza
+    li $v0, 4
+    la $a0, necriptat
+    syscall
+
+    # acum face exact ce a facut mai sus, doar ca pentru decriptarea
+    # celui de-al doilea sir. Stiu, ar fi fost inteligent sa folosesc o procedura,
+    # dar nu este folosita o procedura (*_*)
+    li $t3, 0
+    lb $t2, criptat($t3)
+    decripteaza:
+
+        beqz $t2, afisdecript
+
+        addi $t2, $t2, -65
+        li $t4, 4
+        mul $t2, $t2, $t4
+
+        lw $t4, invCorespondente($t2)
+        addi $t4, $t4, 65
+
+        sb $t4, criptat($t3)
+
+        addi $t3, 1
+        lb $t2, criptat($t3)
+
+        j decripteaza
+
+afisdecript:
+
+    # afiseaza mesajul decriptat (FINALLY)
+    li $v0, 4
+    la $a0, criptat
+    syscall
+
+sfprog:
+
+    # aici se termina programul
+    li $v0, 10
+    syscall

@@ -1,0 +1,87 @@
+.data
+
+    v:.word 1, 2, 3, 4, 5, 9, 8, 7, 6
+    n:.word 9
+    ch:.byte ' '
+
+.text
+
+modifica:
+
+    subu $sp, 4
+    sw $fp, 0($sp)
+    addi $fp, $sp, 4
+    
+    subu $sp, 4
+    sw $s0, 0($sp)
+    
+    subu $sp, 4
+    sw $s1, 0($sp)
+
+    lw $s0, 0($fp)
+    lw $s1, 4($fp)
+
+    li $t0, 0
+
+    loop:
+
+        beq $t0, $s1, exit
+
+        lw $t1, 0($s0)
+        addi $t1, 1
+        sw $t1, 0($s0)
+    
+        addi $s0, 4
+        addi $t0, 1
+
+        j loop
+
+    exit:
+
+    lw $s1, -12($fp)
+    lw $s0, -8($fp)
+    lw $fp, -4($fp)
+
+    addu $sp, 12
+
+    jr $ra
+
+main:
+
+    lw $t0, n
+    subu $sp, 4
+    sw $t0, 0($sp)
+
+    la $t0, v
+    subu $sp, 4
+    sw $t0, 0($sp)
+
+    jal modifica
+
+    addu $sp, 8
+
+    lw $t0, n
+    li $t1, 0
+    li $t2, 0
+
+    afiseaza:
+
+        beq $t0, $t1, endprog
+
+        lw $a0, v($t2)
+        li $v0, 1
+        syscall
+
+        lb $a0, ch
+        li $v0, 11
+        syscall
+
+        addi $t2, 4
+        addi $t1, 1
+
+        j afiseaza
+    
+    endprog:
+
+    li $v0, 10
+    syscall

@@ -1,0 +1,73 @@
+.data
+	a:.word 1, 2, 3, 4
+	  .word 5, 6, 7, 8
+	  .word 9, 10, 11, 12
+	
+	n:.word 3
+	m:.word 4
+	
+	sp:.asciiz " "
+	endl:.asciiz "\n"
+.text
+main:
+	
+	lw $t0, n
+	lw $t1, m
+	lw $t7, n
+
+	li $t8, 1
+	sub $t7, $t7, $t8
+
+	li $t2, 0
+
+printmatrix:
+
+	beq $t0, $t2, exitprog
+	li $t3, 0
+
+printline:
+
+		beq $t3, $t1, exitprint
+
+		# calculate the index
+		li $t4, 0
+		move $t4, $t2
+		li $t6, 4
+		mul $t4, $t4, $t6
+		mul $t4, $t4, $t1
+
+		li $t5, 0
+		move $t5, $t3
+		mul $t5, $t5, $t6
+
+		add $t4, $t5, $t4
+		
+		# store the result in $a0
+		lw $a0, a($t4)
+		li $v0, 1
+		syscall
+
+		la $a0, sp
+		li $v0, 4
+		syscall
+
+		addi $t3, 1
+		j printline
+
+exitprint:
+
+	beq $t2, $t7, skipendl
+	
+	la $a0, endl
+	li $v0, 4
+	syscall
+
+skipendl:
+
+	addi $t2, 1
+	j printmatrix
+
+exitprog:
+
+li $v0, 10
+syscall

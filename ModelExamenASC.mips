@@ -1,0 +1,208 @@
+.data
+
+v:.space 400
+
+.text
+
+suma_cifrelor_para:
+
+	subu $sp, 4
+	sw $fp, 0($sp)
+	addi $fp, $sp, 4
+
+	lw $t5, 0($fp)
+	li $t6, 0
+
+	calcsuma:
+		
+		beq $t5, 0, exitcalc
+		rem $t7, $t5, 10
+		add $t6, $t6, $t7
+
+		div $t5, $t5, 10
+
+		j calcsuma
+
+	exitcalc:
+
+	rem $t6, $t6, 2
+	li $t7, 1
+	sub $t7, $t7, $t6
+
+	move $v0, $t7 
+
+	lw $fp, -4($fp)
+	addu $sp, 4
+
+	jr $ra
+
+evalueaza:
+
+	subu $sp, 4
+	sw $fp, 0($sp)
+	addi $fp, $sp, 4
+
+	subu $sp, 4
+	sw $s0, 0($sp)
+
+	subu $sp, 4
+	sw $s1, 0($sp)	
+
+	subu $sp, 4
+	sw $s2, 0($sp)
+
+	subu $sp, 4
+	sw $s3, 0($sp)
+	
+	subu $sp, 4
+	sw $s4, 0($sp)
+
+	subu $sp, 4
+	sw $ra, 0($sp)
+
+	lw $s0, 0($fp)
+	lw $s1, 4($fp)
+	lw $s2, 8($fp)
+	lw $s3, 12($fp)
+	lw $s4, 16($fp)
+
+	li $t0, 0
+	li $t8, 0
+
+	eval:
+
+		beq $t0, $s1, sfeval
+		
+		lw $t1, 0($s0)
+		
+		# prima parte a produsului din dreapta
+		move $t2, $t1
+		rem $t2, $t2, $s2
+
+
+		# a doua parte a produsului din dreapta
+		move $t3, $s4
+		div $t3, $t3, 3
+		mul $t3, $t3, -1
+		add $t3, $t3, $s3
+		add $t3, $t3, $t0
+
+		mul $t4, $t3, $t3
+		mul $t4, $t4, $t3
+		
+		# a doua parte
+		add $t2, $t2, $t4
+
+		subu $sp, 4
+		sw $t1, 0($sp)
+
+		jal suma_cifrelor_para
+
+		addi $sp, 4
+
+		# aici avem rezultatul
+		move $t1, $v0
+
+		li $t3, 1
+		sub $t1, $t3, $t1
+
+		mul $t1, $t1, $t2
+		add $t8, $t8, $t1
+
+		addi $t0, 1
+		addi $s0, 4
+		j eval
+
+	sfeval:
+
+	lw $ra, -28($fp)
+	lw $s4, -24($fp)
+	lw $s3, -20($fp)
+	lw $s2, -16($fp)
+	lw $s1, -12($fp)
+	lw $s0, -8($fp)
+	lw $fp, -4($fp)
+
+	addu $sp, 28
+
+	subu $sp, 4
+	sw $t8, 0($sp)
+
+	jr $ra
+
+main:
+
+	li $v0, 5
+	syscall
+	move $t0, $v0
+
+	li $t1, 0
+	li $t2, 0
+
+	readv:
+
+		beq $t1, $t0, exitread
+		
+		li $v0, 5
+		syscall
+		sw $v0, v($t2)
+
+		addi $t1, 1
+		addi $t2, 4
+
+		j readv	
+
+	exitread:
+	
+	# baga x, y, z in $t1, $t2, $t3
+
+	li $v0, 5
+	syscall
+	move $t1, $v0
+
+	li $v0, 5
+	syscall
+	move $t2, $v0
+
+	li $v0, 5
+	syscall
+	move $t3, $v0
+
+	subu $sp, 4
+	sw $t3, 0($sp)
+
+	subu $sp, 4
+	sw $t2, 0($sp)
+
+	subu $sp, 4
+	sw $t1, 0($sp)
+
+	subu $sp, 4
+	sw $t0, 0($sp)
+
+	la $t4, v
+	subu $sp, 4
+	sw $t4, 0($sp)
+
+	jal evalueaza
+
+	# baga rezultatul in t4
+	lw $t4, 0($sp)
+
+	afis:
+
+		beq $t4, 0, sfafis
+		rem $a0, $t4, 10
+		li $v0, 1
+		syscall
+
+		div $t4, $t4 10
+		j afis
+
+	sfafis:
+
+	# 24 ca e si rezultatul in varful stivei
+	addu $sp, 24	
+
+	li $v0, 10
+	syscall
